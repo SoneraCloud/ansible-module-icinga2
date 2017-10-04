@@ -1,0 +1,93 @@
+---
+- name: Install required tools
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - python-virtualenv
+    - git
+
+- name: Install icinga2 api library
+  pip:
+    name: "{{ icinga2api_python_library }}"
+    virtualenv: "{{ icinga2api_virtualenv }}"
+    state: forcereinstall
+    extra_args: --upgrade
+
+- name: Install icinga2 api library deps
+  pip:
+    name: "{{ item }}"
+    virtualenv: "{{ icinga2api_virtualenv }}"
+  with_items:
+    - requests
+    - jinja2
+
+- name: icinga2 - Add zone and endpoint
+  icinga2:
+    server_url: "{{ icinga2_url }}"
+    api_user: "{{ icinga2_director_user }}"
+    api_password: "{{ icinga2_director_pass }}"
+    add_host_zone_endpoint:
+      fqdn: "{{ ansible_fqdn }}"
+      parent: "{{ icinga2_parent }}"
+      host: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+  vars:
+    # The following code would be nicer, but doesn't work in Ansible 2.2 ...
+    # fatal: [red]: FAILED! => {
+    #    "changed": false,
+    #    "failed": true,
+    #    "invocation": {
+    #        "module_name": "icinga2"
+    #    },
+    #    "module_stderr": "Shared connection to 192.168.36.46 closed.\r\n",
+    #    "module_stdout": "/bin/sh: {{: command not found\r\n",
+    #    "msg": "MODULE FAILURE"
+    #}
+    #ansible_python_interpreter: "{{ icinga2api_virtualenv }}/bin/python"
+    ansible_python_interpreter: "/opt/cloudy/icinga2/venv/bin/python"
+  delegate_to: "{{ icinga2_api_usage_hostname | default(omit) }}"
+  become: no
+  tags: icinga2-client-api-zone-and-endpoint
+
+- name: add a host
+  icinga2:
+    server_url: "{{ icinga2_url }}"
+    api_user: "{{ icinga2_director_user }}"
+    api_password: "{{ icinga2_director_pass }}"
+    objects: create
+    args:
+      object_type: Host
+      name: "{{ ansible_fqdn }}"
+      templates:
+        - generic-host
+      attrs:
+        address: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+        check_command: hostalive
+        vars.client_endpoint: "{{ ansible_fqdn }}"
+  vars:
+    ansible_python_interpreter: "/opt/cloudy/icinga2/venv/bin/python"
+  delegate_to: "{{ icinga2_api_usage_hostname | default(omit) }}"
+  become: no
+  tags: icinga2-client-api-host
+
+- name: add services
+  icinga2:
+    server_url: "{{ icinga2_url }}"
+    api_user: "{{ icinga2_director_user }}"
+    api_password: "{{ icinga2_director_pass }}"
+    objects: create
+    args:
+      object_type: Service
+      name: "{{ ansible_fqdn }}!{{ item }}"
+      templates:
+        - generic-service
+      attrs:
+        check_command: "{{ item }}"
+        command_endpoint: "{{ ansible_fqdn }}"
+  vars:
+    ansible_python_interpreter: "/opt/cloudy/icinga2/venv/bin/python"
+  delegate_to: "{{ icinga2_api_usage_hostname | default(omit) }}"
+  become: no
+  tags: icinga2-client-api-services
+  with_items: "{{ icinga2_client_services }}"
+...

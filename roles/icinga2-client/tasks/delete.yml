@@ -1,0 +1,15 @@
+---
+# Delete the current host from icinga2. This should also delete the config
+# package which creates the zone and endpoint
+- name: Delete a host
+  icinga2:
+    server_url: "{{ icinga2_url }}"
+    api_user: "{{ icinga2_director_user }}"
+    api_password: "{{ icinga2_director_pass }}"
+    objects: delete
+    args:
+      object_type: Host
+      name: "{{ ansible_fqdn }}"
+  delegate_to: "{{ icinga2_api_usage_hostname | default(omit) }}"
+  tags:
+    - icinga2-client-api-delete

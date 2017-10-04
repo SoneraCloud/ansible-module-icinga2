@@ -1,0 +1,25 @@
+---
+  # Install icinga2 client and add the host to the configured parent
+- name: Deploy ansible-icinga2-client role
+  include_role:
+    name: ansible-icinga2-client
+  tags:
+    - icinga2-client
+    - icinga2-client-configuration
+
+- name: Open icinga firewall port
+  firewalld:
+    port: 5665/tcp
+    source: "{{ icinga2_parent_ip }}/32"
+    permanent: true
+    state: enabled
+    immediate: true
+  tags:
+    - icinga2-client
+
+- name: Add host using APIs
+  include: api-tasks.yml
+  tags:
+    - icinga2-client
+    - icinga2-client-api
+...

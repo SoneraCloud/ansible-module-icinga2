@@ -1,0 +1,4 @@
+---
+# Add the icinga2 module which checks the icinga2 agent is running locally
+icinga2_client_services:
+  - icinga
